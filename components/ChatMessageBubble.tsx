@@ -1,5 +1,6 @@
 import { cn } from "@/utils/cn";
 import type { Message } from "ai/react";
+import Image from "next/image";
 
 export function ChatMessageBubble(props: {
   message: Message;
@@ -18,7 +19,7 @@ export function ChatMessageBubble(props: {
     >
       {props.message.role !== "user" && (
         <div className="mr-4 border bg-secondary -mt-2 rounded-full w-10 h-10 flex-shrink-0 flex items-center justify-center">
-          {props.aiEmoji}
+          <Image src="/images/interflon.png" alt="interflon logo" width={40} height={40} />
         </div>
       )}
 

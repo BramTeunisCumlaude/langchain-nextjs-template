@@ -30,43 +30,37 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const messages = body.messages ?? [];
     const formattedPreviousMessages = messages.slice(0, -1).map(formatMessage);
-    const currentMessageContent = messages[messages.length - 1].content;
-    const prompt = PromptTemplate.fromTemplate(TEMPLATE);
+    const currentMessageContent = messages[messages.length - 1]?.content;
 
-    /**
-     * You can also try e.g.:
-     *
-     * import { ChatAnthropic } from "@langchain/anthropic";
-     * const model = new ChatAnthropic({});
-     *
-     * See a full list of supported models at:
-     * https://js.langchain.com/docs/modules/model_io/models/
-     */
-    const model = new ChatOpenAI({
-      temperature: 0.8,
-      model: "gpt-4o-mini",
+    if (!currentMessageContent) {
+      return NextResponse.json({ error: "No message content provided" }, { status: 400 });
+    }
+
+    const apiUrl = "http://localhost:7071/api/Generate_Report?company=" + currentMessageContent; // Replace with your API URL
+
+    const apiResponse = await fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_history: formattedPreviousMessages.join("\n"),
+        input: currentMessageContent,
+      }),
     });
 
-    /**
-     * Chat models stream message chunks rather than bytes, so this
-     * output parser handles serialization and byte-encoding.
-     */
-    const outputParser = new HttpResponseOutputParser();
+    if (!apiResponse.ok) {
+      throw new Error(`API request failed with status ${apiResponse.status}`);
+    }
 
-    /**
-     * Can also initialize as:
-     *
-     * import { RunnableSequence } from "@langchain/core/runnables";
-     * const chain = RunnableSequence.from([prompt, model, outputParser]);
-     */
-    const chain = prompt.pipe(model).pipe(outputParser);
+    // Stream response from the external API back to the client
+    const responseBody = apiResponse.body;
+    if (!responseBody) {
+      throw new Error("API response body is empty.");
+    }
 
-    const stream = await chain.stream({
-      chat_history: formattedPreviousMessages.join("\n"),
-      input: currentMessageContent,
+    return new Response(responseBody, {
+      headers: { "Content-Type": "text/event-stream" }, // Adjust if needed
     });
 
-    return new StreamingTextResponse(stream);
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: e.status ?? 500 });
   }
